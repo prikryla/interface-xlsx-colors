@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XLSX Color & Comment Copier</title>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -17,112 +18,34 @@
             align-items: flex-start;
             padding: 40px 20px;
         }
-        .container {
-            max-width: 700px;
-            width: 100%;
-        }
-        h1 {
-            font-size: 1.5rem;
-            margin-bottom: 8px;
-            color: #1a1a2e;
-        }
-        .subtitle {
-            color: #666;
-            font-size: 0.9rem;
-            margin-bottom: 30px;
-            line-height: 1.5;
-        }
-        .upload-section {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 24px;
-        }
+        .container { max-width: 700px; width: 100%; }
+        h1 { font-size: 1.5rem; margin-bottom: 8px; color: #1a1a2e; }
+        .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 30px; line-height: 1.5; }
+        .upload-section { display: flex; gap: 20px; margin-bottom: 24px; }
         .upload-box {
-            flex: 1;
-            background: #fff;
-            border: 2px dashed #ccc;
-            border-radius: 10px;
-            padding: 24px 16px;
-            text-align: center;
-            cursor: pointer;
-            transition: border-color 0.2s, background 0.2s;
-            position: relative;
+            flex: 1; background: #fff; border: 2px dashed #ccc; border-radius: 10px;
+            padding: 24px 16px; text-align: center; cursor: pointer;
+            transition: border-color 0.2s, background 0.2s; position: relative;
         }
         .upload-box:hover { border-color: #4a90d9; background: #f0f6ff; }
         .upload-box.loaded { border-color: #27ae60; border-style: solid; background: #f0fff5; }
-        .upload-box input[type="file"] {
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            cursor: pointer;
-        }
-        .upload-box .label {
-            font-weight: 600;
-            font-size: 0.95rem;
-            margin-bottom: 6px;
-        }
-        .upload-box .hint {
-            font-size: 0.8rem;
-            color: #888;
-        }
-        .upload-box .filename {
-            font-size: 0.8rem;
-            color: #27ae60;
-            margin-top: 8px;
-            word-break: break-all;
-        }
-        .btn {
-            display: block;
-            width: 100%;
-            padding: 14px;
-            font-size: 1rem;
-            font-weight: 600;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn-primary {
-            background: #4a90d9;
-            color: #fff;
-        }
+        .upload-box input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+        .upload-box .label { font-weight: 600; font-size: 0.95rem; margin-bottom: 6px; }
+        .upload-box .hint { font-size: 0.8rem; color: #888; }
+        .upload-box .filename { font-size: 0.8rem; color: #27ae60; margin-top: 8px; word-break: break-all; }
+        .btn { display: block; width: 100%; padding: 14px; font-size: 1rem; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+        .btn-primary { background: #4a90d9; color: #fff; }
         .btn-primary:hover { background: #357abd; }
-        .btn-primary:disabled {
-            background: #b0c4de;
-            cursor: not-allowed;
-        }
-        .btn-success {
-            background: #27ae60;
-            color: #fff;
-            margin-top: 12px;
-        }
+        .btn-primary:disabled { background: #b0c4de; cursor: not-allowed; }
+        .btn-success { background: #27ae60; color: #fff; margin-top: 12px; }
         .btn-success:hover { background: #219a52; }
-        .status {
-            margin-top: 20px;
-            padding: 16px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            line-height: 1.6;
-            display: none;
-        }
+        .status { margin-top: 20px; padding: 16px; border-radius: 8px; font-size: 0.9rem; line-height: 1.6; display: none; }
         .status.info { display: block; background: #e8f4fd; color: #1a6fa8; }
         .status.success { display: block; background: #e8f8ef; color: #1a7a42; }
         .status.error { display: block; background: #fde8e8; color: #a81a1a; }
-        .spinner {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 2px solid #ccc;
-            border-top-color: #4a90d9;
-            border-radius: 50%;
-            animation: spin 0.6s linear infinite;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #4a90d9; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        @media (max-width: 500px) {
-            .upload-section { flex-direction: column; }
-        }
+        @media (max-width: 500px) { .upload-section { flex-direction: column; } }
     </style>
 </head>
 <body>
@@ -132,7 +55,6 @@
             Import yesterday's file (with colors & comments) and today's file.
             Colors from column C and comments from column K will be copied to matching <strong>inv_num</strong> rows.
         </p>
-
         <div class="upload-section">
             <div class="upload-box" id="box-before">
                 <input type="file" id="file-before" accept=".xlsx">
@@ -147,149 +69,485 @@
                 <div class="filename" id="name-current"></div>
             </div>
         </div>
-
         <button class="btn btn-primary" id="btn-process" disabled>Process Files</button>
-
         <div class="status" id="status"></div>
         <button class="btn btn-success" id="btn-download" style="display:none;">Download Updated File</button>
     </div>
 
     <script>
-        let beforeFile = null;
-        let currentFile = null;
-        let resultBlob = null;
-        let currentFileName = '';
-
+        let beforeFile = null, currentFile = null, resultBlob = null, currentFileName = '';
         const fileBefore = document.getElementById('file-before');
         const fileCurrent = document.getElementById('file-current');
         const btnProcess = document.getElementById('btn-process');
         const btnDownload = document.getElementById('btn-download');
         const statusEl = document.getElementById('status');
 
-        fileBefore.addEventListener('change', (e) => {
+        fileBefore.addEventListener('change', e => {
             beforeFile = e.target.files[0];
             document.getElementById('name-before').textContent = beforeFile ? beforeFile.name : '';
             document.getElementById('box-before').classList.toggle('loaded', !!beforeFile);
-            updateProcessBtn();
+            btnProcess.disabled = !(beforeFile && currentFile);
         });
-
-        fileCurrent.addEventListener('change', (e) => {
+        fileCurrent.addEventListener('change', e => {
             currentFile = e.target.files[0];
             currentFileName = currentFile ? currentFile.name : '';
             document.getElementById('name-current').textContent = currentFileName;
             document.getElementById('box-current').classList.toggle('loaded', !!currentFile);
-            updateProcessBtn();
-        });
-
-        function updateProcessBtn() {
             btnProcess.disabled = !(beforeFile && currentFile);
-        }
-
+        });
         function setStatus(msg, type) {
             statusEl.className = 'status ' + type;
             statusEl.innerHTML = msg;
         }
 
-        // Convert theme color index + tint to an ARGB hex string.
-        // ExcelJS exposes the workbook theme as wb._themes (XML string).
-        // We parse the theme XML to extract the color palette, then apply tint.
-        function parseThemeColors(wb) {
-            const defaultPalette = [
-                'FFFFFF', // 0 - lt1 (window/light)
-                '000000', // 1 - dk1 (window text/dark)
-                '4472C4', // 2 - lt2
-                'A5A5A5', // 3 - dk2
-                'ED7D31', // 4 - accent1
-                'FFC000', // 5 - accent2
-                '70AD47', // 6 - accent3
-                '5B9BD5', // 7 - accent4
-                '44546A', // 8 - accent5
-                '7030A0', // 9 - accent6
-                '0563C1', // 10 - hlink
-                '954F72', // 11 - folHlink
-            ];
+        // ==================== THEME & COLOR UTILITIES ====================
 
-            // Try to parse from workbook theme XML
+        function parseThemeColors(wb) {
+            const palette = ['FFFFFF','000000','4472C4','A5A5A5','ED7D31','FFC000','70AD47','5B9BD5','44546A','7030A0','0563C1','954F72'];
             if (wb._themes && wb._themes.length > 0) {
                 try {
-                    const themeXml = wb._themes[0];
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(themeXml, 'application/xml');
-
-                    // Find color scheme - look for a]clrScheme or a:clrScheme
+                    const doc = new DOMParser().parseFromString(wb._themes[0], 'application/xml');
                     const ns = 'http://schemas.openxmlformats.org/drawingml/2006/main';
-                    let clrScheme = doc.getElementsByTagNameNS(ns, 'clrScheme')[0];
-
+                    const clrScheme = doc.getElementsByTagNameNS(ns, 'clrScheme')[0];
                     if (clrScheme) {
-                        const colorNames = ['lt1', 'dk1', 'lt2', 'dk2',
-                                           'accent1', 'accent2', 'accent3', 'accent4',
-                                           'accent5', 'accent6', 'hlink', 'folHlink'];
-                        // Note: Excel theme order is dk1, lt1, dk2, lt2, accent1...
-                        // but theme index 0 = lt1, 1 = dk1, 2 = lt2, 3 = dk2 in Excel
-                        const excelOrder = ['lt1', 'dk1', 'lt2', 'dk2',
-                                           'accent1', 'accent2', 'accent3', 'accent4',
-                                           'accent5', 'accent6', 'hlink', 'folHlink'];
-
-                        for (let i = 0; i < excelOrder.length; i++) {
-                            const el = clrScheme.getElementsByTagNameNS(ns, excelOrder[i])[0];
-                            if (el) {
-                                // Could be sysClr or srgbClr
-                                const srgb = el.getElementsByTagNameNS(ns, 'srgbClr')[0];
-                                const sys = el.getElementsByTagNameNS(ns, 'sysClr')[0];
-                                if (srgb) {
-                                    defaultPalette[i] = srgb.getAttribute('val');
-                                } else if (sys) {
-                                    defaultPalette[i] = sys.getAttribute('lastClr') || defaultPalette[i];
-                                }
-                            }
+                        const order = ['lt1','dk1','lt2','dk2','accent1','accent2','accent3','accent4','accent5','accent6','hlink','folHlink'];
+                        for (let i = 0; i < order.length; i++) {
+                            const el = clrScheme.getElementsByTagNameNS(ns, order[i])[0];
+                            if (!el) continue;
+                            const srgb = el.getElementsByTagNameNS(ns, 'srgbClr')[0];
+                            const sys = el.getElementsByTagNameNS(ns, 'sysClr')[0];
+                            if (srgb) palette[i] = srgb.getAttribute('val');
+                            else if (sys) palette[i] = sys.getAttribute('lastClr') || palette[i];
                         }
                     }
-                } catch (e) {
-                    console.warn('Could not parse theme XML, using defaults', e);
-                }
+                } catch (e) { console.warn('Theme parse error', e); }
             }
-            return defaultPalette;
+            return palette;
         }
 
         function applyTint(hex6, tint) {
-            if (!tint || tint === 0) return hex6;
-            let r = parseInt(hex6.substring(0, 2), 16);
-            let g = parseInt(hex6.substring(2, 4), 16);
-            let b = parseInt(hex6.substring(4, 6), 16);
-
-            if (tint < 0) {
-                const factor = 1 + tint;
-                r = Math.round(r * factor);
-                g = Math.round(g * factor);
-                b = Math.round(b * factor);
-            } else {
-                r = Math.round(r + (255 - r) * tint);
-                g = Math.round(g + (255 - g) * tint);
-                b = Math.round(b + (255 - b) * tint);
-            }
-
-            const toHex = (v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0');
-            return toHex(r) + toHex(g) + toHex(b);
+            if (!tint) return hex6;
+            let r = parseInt(hex6.substring(0,2),16), g = parseInt(hex6.substring(2,4),16), b = parseInt(hex6.substring(4,6),16);
+            if (tint < 0) { const f = 1+tint; r = Math.round(r*f); g = Math.round(g*f); b = Math.round(b*f); }
+            else { r = Math.round(r+(255-r)*tint); g = Math.round(g+(255-g)*tint); b = Math.round(b+(255-b)*tint); }
+            const h = v => Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0');
+            return h(r)+h(g)+h(b);
         }
 
-        function resolveColor(colorObj, themePalette) {
+        function resolveColor(colorObj, palette) {
             if (!colorObj) return null;
-            // If it has an argb value (RGB type)
-            if (colorObj.argb && colorObj.argb !== '00000000') {
-                return { argb: colorObj.argb };
-            }
-            // If it references a theme
-            if (colorObj.theme !== undefined && colorObj.theme !== null) {
-                const idx = colorObj.theme;
-                if (idx < themePalette.length) {
-                    const base = themePalette[idx];
-                    const tint = colorObj.tint || 0;
-                    const resolved = applyTint(base, tint);
-                    return { argb: 'FF' + resolved.toUpperCase() };
-                }
+            if (colorObj.argb && colorObj.argb !== '00000000') return colorObj.argb;
+            if (colorObj.theme != null && colorObj.theme < palette.length) {
+                return 'FF' + applyTint(palette[colorObj.theme], colorObj.tint || 0).toUpperCase();
             }
             return null;
         }
+
+        // ==================== PARSE BEFORE FILE (ExcelJS) ====================
+
+        async function parseBeforeFile(buffer) {
+            const wb = new ExcelJS.Workbook();
+            await wb.xlsx.load(buffer);
+            const ws = wb.worksheets.find(s => s.name.toLowerCase() === 'pivotka') || wb.worksheets[0];
+            const palette = parseThemeColors(wb);
+            const colorMap = new Map();
+
+            ws.eachRow((row, rowNum) => {
+                if (rowNum < 4) return;
+                const cellC = row.getCell(3), cellK = row.getCell(11);
+                const inv = cellC.value;
+                if (inv == null) return;
+                const key = String(inv).trim();
+                let argb = null;
+                if (cellC.fill && cellC.fill.type === 'pattern' && cellC.fill.pattern === 'solid') {
+                    argb = resolveColor(cellC.fill.fgColor, palette);
+                }
+                const comment = (cellK.value != null && cellK.value !== '') ? String(cellK.value) : null;
+                if (argb || comment) colorMap.set(key, { argb, comment });
+            });
+            return colorMap;
+        }
+
+        // ==================== CURRENT FILE: XML UTILITIES ====================
+
+        const SSML = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+
+        function parseXml(str) {
+            return new DOMParser().parseFromString(str, 'application/xml');
+        }
+
+        function serializeXml(doc) {
+            let xml = new XMLSerializer().serializeToString(doc);
+            // Clean up redundant namespace declarations on child elements
+            const defaultNsDecl = ` xmlns="${SSML}"`;
+            // Keep only the first occurrence (on root element)
+            let first = true;
+            xml = xml.replace(new RegExp(` xmlns="${SSML.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g'), match => {
+                if (first) { first = false; return match; }
+                return '';
+            });
+            return xml;
+        }
+
+        async function findPivotkaSheetPath(zip) {
+            const wbXml = await zip.file('xl/workbook.xml').async('string');
+            const wbDoc = parseXml(wbXml);
+            const sheets = wbDoc.getElementsByTagNameNS(SSML, 'sheet');
+            let sheetRId = null;
+            for (const s of sheets) {
+                if (s.getAttribute('name')?.toLowerCase() === 'pivotka') {
+                    sheetRId = s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id')
+                            || s.getAttribute('r:id');
+                    break;
+                }
+            }
+            if (!sheetRId) {
+                // Default to first sheet
+                sheetRId = sheets[0]?.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id')
+                        || sheets[0]?.getAttribute('r:id');
+            }
+
+            const relsXml = await zip.file('xl/_rels/workbook.xml.rels').async('string');
+            const relsDoc = parseXml(relsXml);
+            const rels = relsDoc.getElementsByTagName('Relationship');
+            for (const rel of rels) {
+                if (rel.getAttribute('Id') === sheetRId) {
+                    const target = rel.getAttribute('Target');
+                    return target.startsWith('/') ? target.substring(1) : 'xl/' + target;
+                }
+            }
+            return 'xl/worksheets/sheet1.xml';
+        }
+
+        // ==================== CURRENT FILE: READ INV_NUM ROWS ====================
+
+        async function getInvNumRowMapping(zip, sheetPath) {
+            const sheetXml = await zip.file(sheetPath).async('string');
+            const doc = parseXml(sheetXml);
+
+            // Try shared strings
+            const ssFile = zip.file('xl/sharedStrings.xml');
+            const sharedStrings = ssFile ? parseSharedStringsXml(await ssFile.async('string')) : [];
+
+            // Try cell values first
+            const mapping = new Map();
+            const rows = doc.getElementsByTagNameNS(SSML, 'row');
+            for (const row of rows) {
+                const rowNum = parseInt(row.getAttribute('r'));
+                if (rowNum < 4) continue;
+                const cells = row.getElementsByTagNameNS(SSML, 'c');
+                for (const cell of cells) {
+                    const ref = cell.getAttribute('r');
+                    if (!ref || !ref.match(/^C\d+$/)) continue;
+                    const vEl = cell.getElementsByTagNameNS(SSML, 'v')[0];
+                    if (!vEl) continue;
+                    let value;
+                    if (cell.getAttribute('t') === 's') {
+                        value = sharedStrings[parseInt(vEl.textContent)];
+                    } else {
+                        value = vEl.textContent;
+                    }
+                    if (value) mapping.set(String(value).trim(), rowNum);
+                }
+            }
+
+            if (mapping.size > 0) {
+                console.log(`Found ${mapping.size} inv_nums from cell values`);
+                return mapping;
+            }
+
+            // Fallback: pivot cache
+            console.log('No cell values found, trying pivot cache...');
+            return await getRowMappingFromPivot(zip, sheetPath);
+        }
+
+        function parseSharedStringsXml(xml) {
+            const doc = parseXml(xml);
+            const sis = doc.getElementsByTagNameNS(SSML, 'si');
+            const strings = [];
+            for (const si of sis) {
+                // Handle both <t> direct and <r> rich text
+                const tEls = si.getElementsByTagNameNS(SSML, 't');
+                let text = '';
+                for (const t of tEls) text += (t.textContent || '');
+                strings.push(text);
+            }
+            return strings;
+        }
+
+        async function getRowMappingFromPivot(zip, sheetPath) {
+            // Find pivot table associated with this sheet
+            const sheetFile = sheetPath.split('/').pop();
+            const relsPath = sheetPath.replace(sheetFile, '_rels/' + sheetFile + '.rels');
+            const relsFile = zip.file(relsPath);
+            if (!relsFile) throw new Error('No pivot table found for pivotka sheet');
+
+            const relsXml = await relsFile.async('string');
+            const relsDoc = parseXml(relsXml);
+            const rels = relsDoc.getElementsByTagName('Relationship');
+
+            let pivotTablePath = null;
+            for (const rel of rels) {
+                if (rel.getAttribute('Type')?.includes('pivotTable')) {
+                    const target = rel.getAttribute('Target');
+                    pivotTablePath = target.startsWith('/') ? target.substring(1) : 'xl/' + target.replace('../', '');
+                    break;
+                }
+            }
+            if (!pivotTablePath) throw new Error('No pivot table found');
+
+            const ptXml = await zip.file(pivotTablePath).async('string');
+            const ptDoc = parseXml(ptXml);
+
+            // Get location
+            const location = ptDoc.getElementsByTagNameNS(SSML, 'location')[0];
+            const ref = location.getAttribute('ref');
+            const startRow = parseInt(ref.match(/\d+/)[0]); // header row
+            const dataStartRow = startRow + 1;
+
+            // Find pivot cache path from pivot table rels
+            const ptFile = pivotTablePath.split('/').pop();
+            const ptRelsPath = pivotTablePath.replace(ptFile, '_rels/' + ptFile + '.rels');
+            const ptRelsFile = zip.file(ptRelsPath);
+            let cachePath = null;
+            if (ptRelsFile) {
+                const ptRelsXml = await ptRelsFile.async('string');
+                const ptRelsDoc = parseXml(ptRelsXml);
+                const ptRels = ptRelsDoc.getElementsByTagName('Relationship');
+                for (const rel of ptRels) {
+                    if (rel.getAttribute('Type')?.includes('pivotCacheDefinition')) {
+                        const target = rel.getAttribute('Target');
+                        cachePath = target.startsWith('/') ? target.substring(1) : 'xl/' + target.replace('../', '');
+                        break;
+                    }
+                }
+            }
+            if (!cachePath) cachePath = 'xl/pivotCache/pivotCacheDefinition1.xml';
+
+            const cacheXml = await zip.file(cachePath).async('string');
+            const cacheDoc = parseXml(cacheXml);
+
+            // Find inv_num field in cache
+            const cacheFields = cacheDoc.getElementsByTagNameNS(SSML, 'cacheField');
+            let invFieldIdx = -1;
+            let cacheValues = [];
+            for (let i = 0; i < cacheFields.length; i++) {
+                if (cacheFields[i].getAttribute('name') === 'inv_num') {
+                    invFieldIdx = i;
+                    const sItems = cacheFields[i].getElementsByTagNameNS(SSML, 's');
+                    for (const s of sItems) cacheValues.push(s.getAttribute('v'));
+                    break;
+                }
+            }
+            if (invFieldIdx === -1) throw new Error('inv_num field not found in pivot cache');
+
+            // Get pivot field items
+            const pivotFields = ptDoc.getElementsByTagNameNS(SSML, 'pivotField');
+            const invPivotField = pivotFields[invFieldIdx];
+            const items = invPivotField.getElementsByTagNameNS(SSML, 'item');
+
+            const mapping = new Map();
+            let currentRow = dataStartRow;
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const t = item.getAttribute('t');
+                if (t) continue; // skip subtotals/grand totals
+
+                const x = item.getAttribute('x');
+                if (x !== null) {
+                    const idx = parseInt(x);
+                    if (idx < cacheValues.length) {
+                        mapping.set(cacheValues[idx], currentRow);
+                    }
+                    currentRow++;
+                }
+            }
+
+            console.log(`Found ${mapping.size} inv_nums from pivot cache`);
+            return mapping;
+        }
+
+        // ==================== MODIFY CURRENT FILE ====================
+
+        function colToNum(col) {
+            let n = 0;
+            for (const c of col) n = n * 26 + c.charCodeAt(0) - 64;
+            return n;
+        }
+
+        function findOrCreateRow(sheetData, rowNum, doc) {
+            const rows = sheetData.getElementsByTagNameNS(SSML, 'row');
+            for (const row of rows) {
+                if (row.getAttribute('r') === String(rowNum)) return row;
+            }
+            // Create new row and insert in order
+            const newRow = doc.createElementNS(SSML, 'row');
+            newRow.setAttribute('r', String(rowNum));
+            let inserted = false;
+            for (const row of rows) {
+                if (parseInt(row.getAttribute('r')) > rowNum) {
+                    sheetData.insertBefore(newRow, row);
+                    inserted = true;
+                    break;
+                }
+            }
+            if (!inserted) sheetData.appendChild(newRow);
+            return newRow;
+        }
+
+        function findOrCreateCell(row, colLetter, rowNum, doc) {
+            const cellRef = colLetter + rowNum;
+            const cells = row.getElementsByTagNameNS(SSML, 'c');
+            for (const cell of cells) {
+                if (cell.getAttribute('r') === cellRef) return cell;
+            }
+            const newCell = doc.createElementNS(SSML, 'c');
+            newCell.setAttribute('r', cellRef);
+            const targetColNum = colToNum(colLetter);
+            let inserted = false;
+            for (const cell of cells) {
+                const ref = cell.getAttribute('r');
+                const existingCol = ref.replace(/\d+/, '');
+                if (colToNum(existingCol) > targetColNum) {
+                    row.insertBefore(newCell, cell);
+                    inserted = true;
+                    break;
+                }
+            }
+            if (!inserted) row.appendChild(newCell);
+            return newCell;
+        }
+
+        async function modifyCurrentFile(zip, colorMap, rowMapping, sheetPath) {
+            // Collect unique ARGB colors needed
+            const neededColors = new Set();
+            for (const [inv, entry] of colorMap) {
+                if (entry.argb && rowMapping.has(inv)) neededColors.add(entry.argb);
+            }
+
+            // --- Modify styles.xml ---
+            const stylesXml = await zip.file('xl/styles.xml').async('string');
+            const stylesDoc = parseXml(stylesXml);
+
+            const fillsEl = stylesDoc.getElementsByTagNameNS(SSML, 'fills')[0];
+            const existingFills = fillsEl.getElementsByTagNameNS(SSML, 'fill');
+            let fillCount = existingFills.length;
+
+            // Map existing fills by RGB
+            const existingFillMap = new Map();
+            for (let i = 0; i < existingFills.length; i++) {
+                const pf = existingFills[i].getElementsByTagNameNS(SSML, 'patternFill')[0];
+                if (pf && pf.getAttribute('patternType') === 'solid') {
+                    const fg = pf.getElementsByTagNameNS(SSML, 'fgColor')[0];
+                    if (fg && fg.getAttribute('rgb')) {
+                        existingFillMap.set(fg.getAttribute('rgb'), i);
+                    }
+                }
+            }
+
+            // Add new fills
+            const colorToFillId = new Map();
+            for (const argb of neededColors) {
+                if (existingFillMap.has(argb)) {
+                    colorToFillId.set(argb, existingFillMap.get(argb));
+                } else {
+                    const fill = stylesDoc.createElementNS(SSML, 'fill');
+                    const pf = stylesDoc.createElementNS(SSML, 'patternFill');
+                    pf.setAttribute('patternType', 'solid');
+                    const fg = stylesDoc.createElementNS(SSML, 'fgColor');
+                    fg.setAttribute('rgb', argb);
+                    const bg = stylesDoc.createElementNS(SSML, 'bgColor');
+                    bg.setAttribute('indexed', '64');
+                    pf.appendChild(fg);
+                    pf.appendChild(bg);
+                    fill.appendChild(pf);
+                    fillsEl.appendChild(fill);
+                    colorToFillId.set(argb, fillCount);
+                    fillCount++;
+                }
+            }
+            fillsEl.setAttribute('count', String(fillCount));
+
+            // Add cellXf entries for each new fill
+            const cellXfsEl = stylesDoc.getElementsByTagNameNS(SSML, 'cellXfs')[0];
+            const existingXfs = cellXfsEl.getElementsByTagNameNS(SSML, 'xf');
+            let xfCount = existingXfs.length;
+
+            // Map existing fillId -> styleIdx
+            const existingFillIdToStyle = new Map();
+            for (let i = 0; i < existingXfs.length; i++) {
+                const fid = parseInt(existingXfs[i].getAttribute('fillId') || '0');
+                if (fid > 0 && !existingFillIdToStyle.has(fid)) {
+                    existingFillIdToStyle.set(fid, i);
+                }
+            }
+
+            const colorToStyleIdx = new Map();
+            for (const [argb, fillId] of colorToFillId) {
+                if (existingFillIdToStyle.has(fillId)) {
+                    colorToStyleIdx.set(argb, existingFillIdToStyle.get(fillId));
+                } else {
+                    const xf = stylesDoc.createElementNS(SSML, 'xf');
+                    xf.setAttribute('numFmtId', '0');
+                    xf.setAttribute('fontId', '0');
+                    xf.setAttribute('fillId', String(fillId));
+                    xf.setAttribute('borderId', '0');
+                    xf.setAttribute('xfId', '0');
+                    xf.setAttribute('applyFill', '1');
+                    cellXfsEl.appendChild(xf);
+                    colorToStyleIdx.set(argb, xfCount);
+                    xfCount++;
+                }
+            }
+            cellXfsEl.setAttribute('count', String(xfCount));
+
+            zip.file('xl/styles.xml', serializeXml(stylesDoc));
+
+            // --- Modify sheet XML ---
+            const sheetXml = await zip.file(sheetPath).async('string');
+            const sheetDoc = parseXml(sheetXml);
+            const sheetData = sheetDoc.getElementsByTagNameNS(SSML, 'sheetData')[0];
+
+            let colorApplied = 0, commentApplied = 0, matched = 0;
+
+            for (const [inv, entry] of colorMap) {
+                const rowNum = rowMapping.get(inv);
+                if (!rowNum) continue;
+                matched++;
+
+                const rowEl = findOrCreateRow(sheetData, rowNum, sheetDoc);
+
+                // Apply color to column C
+                if (entry.argb) {
+                    const styleIdx = colorToStyleIdx.get(entry.argb);
+                    if (styleIdx !== undefined) {
+                        const cellC = findOrCreateCell(rowEl, 'C', rowNum, sheetDoc);
+                        cellC.setAttribute('s', String(styleIdx));
+                        colorApplied++;
+                    }
+                }
+
+                // Apply comment to column K
+                if (entry.comment) {
+                    const cellK = findOrCreateCell(rowEl, 'K', rowNum, sheetDoc);
+                    cellK.setAttribute('t', 'inlineStr');
+                    // Remove existing children
+                    while (cellK.firstChild) cellK.removeChild(cellK.firstChild);
+                    const is = sheetDoc.createElementNS(SSML, 'is');
+                    const t = sheetDoc.createElementNS(SSML, 't');
+                    t.textContent = entry.comment;
+                    is.appendChild(t);
+                    cellK.appendChild(is);
+                    commentApplied++;
+                }
+            }
+
+            zip.file(sheetPath, serializeXml(sheetDoc));
+
+            return { matched, colorApplied, commentApplied };
+        }
+
+        // ==================== MAIN PROCESS ====================
 
         btnProcess.addEventListener('click', async () => {
             btnProcess.disabled = true;
@@ -298,116 +556,47 @@
             setStatus('<span class="spinner"></span> Reading files...', 'info');
 
             try {
-                // Read both files
                 const [beforeBuf, currentBuf] = await Promise.all([
-                    beforeFile.arrayBuffer(),
-                    currentFile.arrayBuffer()
+                    beforeFile.arrayBuffer(), currentFile.arrayBuffer()
                 ]);
 
+                // Parse before file with ExcelJS
                 setStatus('<span class="spinner"></span> Parsing "before" file...', 'info');
-                const wbBefore = new ExcelJS.Workbook();
-                await wbBefore.xlsx.load(beforeBuf);
-                const wsBefore = wbBefore.worksheets[0];
+                const colorMap = await parseBeforeFile(beforeBuf);
+                console.log('Color map:', Object.fromEntries(colorMap));
 
-                // Parse theme colors from the before workbook
-                const themePalette = parseThemeColors(wbBefore);
+                // Process current file with JSZip
+                setStatus(`<span class="spinner"></span> Found ${colorMap.size} entries. Processing current file...`, 'info');
+                const zip = await JSZip.loadAsync(currentBuf);
+                const sheetPath = await findPivotkaSheetPath(zip);
+                console.log('Sheet path:', sheetPath);
 
-                // Build a map: inv_num -> { fill, comment }
-                const colorMap = new Map();
-                const startRow = 4; // data starts at row 4
+                const rowMapping = await getInvNumRowMapping(zip, sheetPath);
+                console.log('Row mapping:', Object.fromEntries(rowMapping));
 
-                wsBefore.eachRow((row, rowNum) => {
-                    if (rowNum < startRow) return;
-                    const cellC = row.getCell(3); // column C
-                    const cellK = row.getCell(11); // column K
-                    const invNum = cellC.value;
-                    if (invNum === null || invNum === undefined) return;
+                if (rowMapping.size === 0) {
+                    setStatus('Error: No inv_num values found in the current file.', 'error');
+                    btnProcess.disabled = false;
+                    return;
+                }
 
-                    const key = String(invNum).trim();
-                    const entry = { fill: null, comment: null };
-
-                    // Extract fill color - resolve theme colors to ARGB
-                    if (cellC.fill && cellC.fill.type === 'pattern' && cellC.fill.pattern === 'solid') {
-                        const fgColor = cellC.fill.fgColor;
-                        const resolved = resolveColor(fgColor, themePalette);
-                        if (resolved) {
-                            entry.fill = {
-                                type: 'pattern',
-                                pattern: 'solid',
-                                fgColor: resolved
-                            };
-                        }
-                    }
-
-                    // Extract comment from column K
-                    if (cellK.value !== null && cellK.value !== undefined && cellK.value !== '') {
-                        entry.comment = cellK.value;
-                    }
-
-                    // Only store if there's something to copy
-                    if (entry.fill || entry.comment !== null) {
-                        colorMap.set(key, entry);
-                    }
-                });
-
-                setStatus(`<span class="spinner"></span> Found ${colorMap.size} rows with colors/comments. Processing current file...`, 'info');
-
-                // Load current file
-                const wbCurrent = new ExcelJS.Workbook();
-                await wbCurrent.xlsx.load(currentBuf);
-                const wsCurrent = wbCurrent.worksheets[0];
-
-                let matched = 0;
-                let colorApplied = 0;
-                let commentApplied = 0;
-
-                wsCurrent.eachRow((row, rowNum) => {
-                    if (rowNum < startRow) return;
-                    const cellC = row.getCell(3);
-                    const cellK = row.getCell(11);
-                    const invNum = cellC.value;
-                    if (invNum === null || invNum === undefined) return;
-
-                    const key = String(invNum).trim();
-                    const entry = colorMap.get(key);
-                    if (!entry) return;
-
-                    matched++;
-
-                    // Apply fill color to column C
-                    if (entry.fill) {
-                        cellC.fill = entry.fill;
-                        colorApplied++;
-                    }
-
-                    // Apply comment to column K
-                    if (entry.comment !== null) {
-                        cellK.value = entry.comment;
-                        commentApplied++;
-                    }
-                });
+                setStatus('<span class="spinner"></span> Applying colors and comments...', 'info');
+                const stats = await modifyCurrentFile(zip, colorMap, rowMapping, sheetPath);
 
                 setStatus('<span class="spinner"></span> Generating output file...', 'info');
-
-                // Generate output
-                const outBuf = await wbCurrent.xlsx.writeBuffer();
-                resultBlob = new Blob([outBuf], {
-                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                });
+                const outBuf = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                resultBlob = outBuf;
 
                 setStatus(
-                    `Done! Matched <strong>${matched}</strong> inv_num rows.<br>` +
-                    `Colors applied: <strong>${colorApplied}</strong> | Comments applied: <strong>${commentApplied}</strong>`,
+                    `Done! Matched <strong>${stats.matched}</strong> inv_num rows.<br>` +
+                    `Colors applied: <strong>${stats.colorApplied}</strong> | Comments applied: <strong>${stats.commentApplied}</strong>`,
                     'success'
                 );
-
                 btnDownload.style.display = 'block';
-
             } catch (err) {
                 console.error(err);
                 setStatus('Error: ' + err.message, 'error');
             }
-
             btnProcess.disabled = false;
         });
 
@@ -416,9 +605,7 @@
             const url = URL.createObjectURL(resultBlob);
             const a = document.createElement('a');
             a.href = url;
-            // Name the output file based on the current file name
-            const baseName = currentFileName.replace(/\.xlsx$/i, '');
-            a.download = baseName + '_updated.xlsx';
+            a.download = currentFileName.replace(/\.xlsx$/i, '') + '_updated.xlsx';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
