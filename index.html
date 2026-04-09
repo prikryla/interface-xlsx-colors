@@ -151,6 +151,7 @@
             const ws = wb.worksheets.find(s => s.name.toLowerCase() === 'pivotka') || wb.worksheets[0];
             const palette = parseThemeColors(wb);
             const colorMap = new Map();
+            const invNumOrder = []; // ordered list of all inv_nums from the before file
 
             ws.eachRow((row, rowNum) => {
                 if (rowNum < 4) return;
@@ -158,6 +159,7 @@
                 const inv = cellC.value;
                 if (inv == null) return;
                 const key = String(inv).trim();
+                invNumOrder.push(key);
                 let argb = null;
                 if (cellC.fill && cellC.fill.type === 'pattern' && cellC.fill.pattern === 'solid') {
                     argb = resolveColor(cellC.fill.fgColor, palette);
@@ -165,7 +167,7 @@
                 const comment = (cellK.value != null && cellK.value !== '') ? String(cellK.value) : null;
                 if (argb || comment) colorMap.set(key, { argb, comment });
             });
-            return colorMap;
+            return { colorMap, invNumOrder };
         }
 
         // ==================== CURRENT FILE: XML UTILITIES ====================
@@ -221,7 +223,7 @@
 
         // ==================== CURRENT FILE: READ INV_NUM ROWS ====================
 
-        async function getInvNumRowMapping(zip, sheetPath) {
+        async function getInvNumRowMapping(zip, sheetPath, beforeOrder) {
             const sheetXml = await zip.file(sheetPath).async('string');
             const doc = parseXml(sheetXml);
 
@@ -258,7 +260,7 @@
 
             // Fallback: pivot cache
             console.log('No cell values found, trying pivot cache...');
-            return await getRowMappingFromPivot(zip, sheetPath);
+            return await getRowMappingFromPivot(zip, sheetPath, beforeOrder);
         }
 
         function parseSharedStringsXml(xml) {
@@ -275,7 +277,7 @@
             return strings;
         }
 
-        async function getRowMappingFromPivot(zip, sheetPath) {
+        async function getRowMappingFromPivot(zip, sheetPath, beforeOrder) {
             // Find pivot table associated with this sheet
             const sheetFile = sheetPath.split('/').pop();
             const relsPath = sheetPath.replace(sheetFile, '_rels/' + sheetFile + '.rels');
@@ -341,29 +343,91 @@
             }
             if (invFieldIdx === -1) throw new Error('inv_num field not found in pivot cache');
 
-            // Get pivot field items
+            // Build reverse map: inv_num value -> cache index
+            const valueToCacheIdx = new Map();
+            for (let i = 0; i < cacheValues.length; i++) {
+                valueToCacheIdx.set(cacheValues[i], i);
+            }
+
+            // Get current pivot items (to find non-data items like subtotals)
             const pivotFields = ptDoc.getElementsByTagNameNS(SSML, 'pivotField');
             const invPivotField = pivotFields[invFieldIdx];
-            const items = invPivotField.getElementsByTagNameNS(SSML, 'item');
+            const currentItems = invPivotField.getElementsByTagNameNS(SSML, 'item');
 
-            const mapping = new Map();
-            let currentRow = dataStartRow;
-            for (let i = 0; i < items.length; i++) {
-                const item = items[i];
+            // Collect non-data items (subtotals, etc.) and out-of-bounds items
+            const specialItems = [];
+            const validCacheIndices = new Set();
+            for (const item of currentItems) {
                 const t = item.getAttribute('t');
-                if (t) continue; // skip subtotals/grand totals
-
                 const x = item.getAttribute('x');
-                if (x !== null) {
+                if (t) {
+                    specialItems.push(item.cloneNode(true));
+                } else if (x !== null) {
                     const idx = parseInt(x);
-                    if (idx < cacheValues.length) {
-                        mapping.set(cacheValues[idx], currentRow);
+                    if (idx >= cacheValues.length) {
+                        specialItems.push(item.cloneNode(true)); // out-of-bounds, keep as special
+                    } else {
+                        validCacheIndices.add(idx);
                     }
-                    currentRow++;
                 }
             }
 
-            console.log(`Found ${mapping.size} inv_nums from pivot cache`);
+            // Reorder items to match the before file's inv_num order
+            // 1. Items matching the before file order (filtered to only those in current cache)
+            // 2. Items in current cache but NOT in before file (new items, appended at end)
+            // 3. Special items (subtotals, out-of-bounds) at the end
+
+            const orderedCacheIndices = [];
+            const usedIndices = new Set();
+
+            // First: items in before file order
+            for (const inv of beforeOrder) {
+                const idx = valueToCacheIdx.get(inv);
+                if (idx !== undefined && validCacheIndices.has(idx)) {
+                    orderedCacheIndices.push(idx);
+                    usedIndices.add(idx);
+                }
+            }
+
+            // Second: items in current cache not in before file
+            for (const idx of validCacheIndices) {
+                if (!usedIndices.has(idx)) {
+                    orderedCacheIndices.push(idx);
+                }
+            }
+
+            // Rebuild items element
+            const itemsContainer = invPivotField.getElementsByTagNameNS(SSML, 'items')[0];
+            // Remove all existing items
+            while (itemsContainer.firstChild) itemsContainer.removeChild(itemsContainer.firstChild);
+
+            // Add reordered data items
+            for (const idx of orderedCacheIndices) {
+                const item = ptDoc.createElementNS(SSML, 'item');
+                item.setAttribute('x', String(idx));
+                itemsContainer.appendChild(item);
+            }
+            // Add special items
+            for (const item of specialItems) {
+                itemsContainer.appendChild(item);
+            }
+            itemsContainer.setAttribute('count', String(orderedCacheIndices.length + specialItems.length));
+
+            // Remove sortType to prevent Excel from re-sorting
+            invPivotField.removeAttribute('sortType');
+
+            // Save modified pivot table
+            zip.file(pivotTablePath, serializeXml(ptDoc));
+
+            // Build row mapping based on new order
+            const mapping = new Map();
+            let currentRow = dataStartRow;
+            for (const idx of orderedCacheIndices) {
+                mapping.set(cacheValues[idx], currentRow);
+                currentRow++;
+            }
+
+            console.log(`Found ${mapping.size} inv_nums from pivot cache (reordered to match before file)`);
             return mapping;
         }
 
@@ -562,8 +626,9 @@
 
                 // Parse before file with ExcelJS
                 setStatus('<span class="spinner"></span> Parsing "before" file...', 'info');
-                const colorMap = await parseBeforeFile(beforeBuf);
+                const { colorMap, invNumOrder } = await parseBeforeFile(beforeBuf);
                 console.log('Color map:', Object.fromEntries(colorMap));
+                console.log('Before file order:', invNumOrder);
 
                 // Process current file with JSZip
                 setStatus(`<span class="spinner"></span> Found ${colorMap.size} entries. Processing current file...`, 'info');
@@ -571,7 +636,7 @@
                 const sheetPath = await findPivotkaSheetPath(zip);
                 console.log('Sheet path:', sheetPath);
 
-                const rowMapping = await getInvNumRowMapping(zip, sheetPath);
+                const rowMapping = await getInvNumRowMapping(zip, sheetPath, invNumOrder);
                 console.log('Row mapping:', Object.fromEntries(rowMapping));
 
                 if (rowMapping.size === 0) {
