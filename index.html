@@ -606,6 +606,52 @@
                 }
             }
 
+            // --- Hide columns G, H, I, J (7-10) ---
+            let colsEl = sheetDoc.getElementsByTagNameNS(SSML, 'cols')[0];
+            if (!colsEl) {
+                colsEl = sheetDoc.createElementNS(SSML, 'cols');
+                const sheetDataEl = sheetDoc.getElementsByTagNameNS(SSML, 'sheetData')[0];
+                sheetDataEl.parentNode.insertBefore(colsEl, sheetDataEl);
+            }
+
+            // Check existing col elements and hide G-J, or add new ones
+            const existingCols = colsEl.getElementsByTagNameNS(SSML, 'col');
+            const hideCols = [7, 8, 9, 10]; // G=7, H=8, I=9, J=10
+            const handledCols = new Set();
+
+            for (const col of existingCols) {
+                const min = parseInt(col.getAttribute('min'));
+                const max = parseInt(col.getAttribute('max'));
+                for (const hc of hideCols) {
+                    if (hc >= min && hc <= max) {
+                        col.setAttribute('hidden', '1');
+                        handledCols.add(hc);
+                    }
+                }
+            }
+
+            // Add col elements for any not yet handled
+            const unhandled = hideCols.filter(c => !handledCols.has(c));
+            if (unhandled.length > 0) {
+                // Group consecutive columns
+                let start = unhandled[0], end = unhandled[0];
+                for (let i = 1; i <= unhandled.length; i++) {
+                    if (i < unhandled.length && unhandled[i] === end + 1) {
+                        end = unhandled[i];
+                    } else {
+                        const col = sheetDoc.createElementNS(SSML, 'col');
+                        col.setAttribute('min', String(start));
+                        col.setAttribute('max', String(end));
+                        col.setAttribute('hidden', '1');
+                        col.setAttribute('customWidth', '1');
+                        colsEl.appendChild(col);
+                        if (i < unhandled.length) {
+                            start = end = unhandled[i];
+                        }
+                    }
+                }
+            }
+
             zip.file(sheetPath, serializeXml(sheetDoc));
 
             return { matched, colorApplied, commentApplied };
