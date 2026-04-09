@@ -54,31 +54,31 @@
     <div class="container">
         <h1>XLSX Color & Comment Copier</h1>
         <p class="subtitle">
-            Import yesterday's file (with colors & comments) and today's file.
-            Colors from column C and comments from column K will be copied to matching <strong>inv_num</strong> rows.
+            Nahrajte soubor z minuleho dne (s barvami a komentari) a soubor z aktualniho dne.
+            Barvy ze sloupce C a komentare ze sloupce K budou prekopirovany na odpovidajici radky podle <strong>inv_num</strong>.
         </p>
         <div class="upload-section">
             <div class="upload-box" id="box-before">
                 <input type="file" id="file-before" accept=".xlsx">
-                <div class="label">Before (yesterday)</div>
-                <div class="hint">File with colors & comments</div>
+                <div class="label">Predchozi (vcera)</div>
+                <div class="hint">Soubor s barvami a komentari</div>
                 <div class="filename" id="name-before"></div>
             </div>
             <div class="upload-box" id="box-current">
                 <input type="file" id="file-current" accept=".xlsx">
-                <div class="label">Current (today)</div>
-                <div class="hint">File to update</div>
+                <div class="label">Aktualni (dnes)</div>
+                <div class="hint">Soubor k aktualizaci</div>
                 <div class="filename" id="name-current"></div>
             </div>
         </div>
-        <button class="btn btn-primary" id="btn-process" disabled>Process Files</button>
+        <button class="btn btn-primary" id="btn-process" disabled>Zpracovat soubory</button>
         <div class="status" id="status"></div>
         <div id="download-section" style="display:none;">
-            <label for="output-name" style="font-size:0.85rem;color:#555;display:block;margin-bottom:4px;">Output file name:</label>
+            <label for="output-name" style="font-size:0.85rem;color:#555;display:block;margin-bottom:4px;">Nazev vystupniho souboru:</label>
             <input type="text" id="output-name" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;margin-bottom:8px;">
-            <button class="btn btn-success" id="btn-download">Download Updated File</button>
+            <button class="btn btn-success" id="btn-download">Stahnout upraveny soubor</button>
         </div>
-        <button class="btn btn-reset" id="btn-reset" style="display:none;">Start Over</button>
+        <button class="btn btn-reset" id="btn-reset" style="display:none;">Zpracovat dalsi soubory</button>
     </div>
 
     <script>
@@ -673,7 +673,7 @@
             btnProcess.disabled = true;
             btnDownload.style.display = 'none';
             resultBlob = null;
-            setStatus('<span class="spinner"></span> Reading files...', 'info');
+            setStatus('<span class="spinner"></span> Nacitani souboru...', 'info');
 
             try {
                 const [beforeBuf, currentBuf] = await Promise.all([
@@ -681,13 +681,13 @@
                 ]);
 
                 // Parse before file with ExcelJS
-                setStatus('<span class="spinner"></span> Parsing "before" file...', 'info');
+                setStatus('<span class="spinner"></span> Zpracovavam predchozi soubor...', 'info');
                 const { colorMap, invNumOrder } = await parseBeforeFile(beforeBuf);
                 console.log('Color map:', Object.fromEntries(colorMap));
                 console.log('Before file order:', invNumOrder);
 
                 // Process current file with JSZip
-                setStatus(`<span class="spinner"></span> Found ${colorMap.size} entries. Processing current file...`, 'info');
+                setStatus(`<span class="spinner"></span> Nalezeno ${colorMap.size} zaznamu. Zpracovavam aktualni soubor...`, 'info');
                 const zip = await JSZip.loadAsync(currentBuf);
                 const sheetPath = await findPivotkaSheetPath(zip);
                 console.log('Sheet path:', sheetPath);
@@ -696,28 +696,29 @@
                 console.log('Row mapping:', Object.fromEntries(rowMapping));
 
                 if (rowMapping.size === 0) {
-                    setStatus('Error: No inv_num values found in the current file.', 'error');
+                    setStatus('Chyba: V aktualnim souboru nebyly nalezeny zadne hodnoty inv_num.', 'error');
                     btnProcess.disabled = false;
                     return;
                 }
 
-                setStatus('<span class="spinner"></span> Applying colors and comments...', 'info');
+                setStatus('<span class="spinner"></span> Aplikuji barvy a komentare...', 'info');
                 const stats = await modifyCurrentFile(zip, colorMap, rowMapping, sheetPath);
 
-                setStatus('<span class="spinner"></span> Generating output file...', 'info');
+                setStatus('<span class="spinner"></span> Generuji vystupni soubor...', 'info');
                 const outBuf = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 resultBlob = outBuf;
 
                 setStatus(
-                    `Done! Matched <strong>${stats.matched}</strong> inv_num rows.<br>` +
-                    `Colors applied: <strong>${stats.colorApplied}</strong> | Comments applied: <strong>${stats.commentApplied}</strong>`,
+                    `Hotovo! Sparovano <strong>${stats.matched}</strong> radku.<br>` +
+                    `Aplikovano barev: <strong>${stats.colorApplied}</strong> | Aplikovano komentaru: <strong>${stats.commentApplied}</strong>`,
                     'success'
                 );
                 outputNameInput.value = currentFileName.replace(/\.xlsx$/i, '') + '_updated.xlsx';
                 downloadSection.style.display = 'block';
+                btnReset.style.display = 'block';
             } catch (err) {
                 console.error(err);
-                setStatus('Error: ' + err.message, 'error');
+                setStatus('Chyba: ' + err.message, 'error');
             }
             btnProcess.disabled = false;
         });
@@ -735,7 +736,6 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            btnReset.style.display = 'block';
         });
 
         btnReset.addEventListener('click', () => {
