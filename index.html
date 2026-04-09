@@ -37,7 +37,7 @@
         .btn-primary { background: #4a90d9; color: #fff; }
         .btn-primary:hover { background: #357abd; }
         .btn-primary:disabled { background: #b0c4de; cursor: not-allowed; }
-        .btn-success { background: #27ae60; color: #fff; margin-top: 12px; }
+        .btn-success { background: #27ae60; color: #fff; }
         .btn-success:hover { background: #219a52; }
         .btn-reset { background: #6c757d; color: #fff; margin-top: 12px; }
         .btn-reset:hover { background: #565e64; }
@@ -75,10 +75,8 @@
         <div class="status" id="status"></div>
         <div id="download-section" style="display:none;">
             <label for="output-name" style="font-size:0.85rem;color:#555;display:block;margin-bottom:4px;">Nazev vystupniho souboru:</label>
-            <div style="display:flex;gap:8px;align-items:stretch;">
-                <input type="text" id="output-name" style="flex:1;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;">
-                <button class="btn btn-success" id="btn-download" style="width:auto;padding:10px 20px;white-space:nowrap;">Stahnout</button>
-            </div>
+            <input type="text" id="output-name" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;margin-bottom:8px;">
+            <button class="btn btn-success" id="btn-download">Stahnout soubor</button>
         </div>
         <button class="btn btn-reset" id="btn-reset" style="display:none;">Zpracovat dalsi soubory</button>
     </div>
