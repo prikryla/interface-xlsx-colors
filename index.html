@@ -75,10 +75,10 @@
         <div class="status" id="status"></div>
         <div id="download-section" style="display:none;">
             <label for="output-name" style="font-size:0.85rem;color:#555;display:block;margin-bottom:4px;">Nazev vystupniho souboru:</label>
-            <input type="text" id="output-name" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;margin-bottom:8px;">
-            <button class="btn btn-success" id="btn-download" style="display:block;margin-top:8px;background:#27ae60;color:#fff;padding:14px;width:100%;font-size:1rem;font-weight:600;border:none;border-radius:8px;cursor:pointer;">Stahnout soubor</button>
+            <input type="text" id="output-name" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;">
         </div>
-        <button class="btn btn-reset" id="btn-reset" style="display:none;">Zpracovat dalsi soubory</button>
+        <button id="btn-download" style="display:none;margin-top:8px;background:#27ae60;color:#fff;padding:14px;width:100%;font-size:1rem;font-weight:600;border:none;border-radius:8px;cursor:pointer;">Stahnout soubor</button>
+        <button id="btn-reset" style="display:none;margin-top:8px;background:#6c757d;color:#fff;padding:14px;width:100%;font-size:1rem;font-weight:600;border:none;border-radius:8px;cursor:pointer;">Zpracovat dalsi soubory</button>
     </div>
 
     <script>
@@ -717,6 +717,7 @@
                 );
                 outputNameInput.value = currentFileName.replace(/\.xlsx$/i, '') + '_updated.xlsx';
                 downloadSection.style.display = 'block';
+                btnDownload.style.display = 'block';
                 btnReset.style.display = 'block';
             } catch (err) {
                 console.error(err);
@@ -753,6 +754,7 @@
             document.getElementById('box-current').classList.remove('loaded');
             btnProcess.disabled = true;
             downloadSection.style.display = 'none';
+            btnDownload.style.display = 'none';
             btnReset.style.display = 'none';
             statusEl.className = 'status';
             statusEl.innerHTML = '';
