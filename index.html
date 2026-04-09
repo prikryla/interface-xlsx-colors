@@ -75,8 +75,10 @@
         <div class="status" id="status"></div>
         <div id="download-section" style="display:none;">
             <label for="output-name" style="font-size:0.85rem;color:#555;display:block;margin-bottom:4px;">Nazev vystupniho souboru:</label>
-            <input type="text" id="output-name" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;margin-bottom:8px;">
-            <button class="btn btn-success" id="btn-download">Stahnout upraveny soubor</button>
+            <div style="display:flex;gap:8px;align-items:stretch;">
+                <input type="text" id="output-name" style="flex:1;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:0.95rem;">
+                <button class="btn btn-success" id="btn-download" style="width:auto;padding:10px 20px;white-space:nowrap;">Stahnout</button>
+            </div>
         </div>
         <button class="btn btn-reset" id="btn-reset" style="display:none;">Zpracovat dalsi soubory</button>
     </div>
@@ -97,6 +99,7 @@
             document.getElementById('name-before').textContent = beforeFile ? beforeFile.name : '';
             document.getElementById('box-before').classList.toggle('loaded', !!beforeFile);
             btnProcess.disabled = !(beforeFile && currentFile);
+            if (beforeFile || currentFile) btnReset.style.display = 'block';
         });
         fileCurrent.addEventListener('change', e => {
             currentFile = e.target.files[0];
@@ -104,6 +107,7 @@
             document.getElementById('name-current').textContent = currentFileName;
             document.getElementById('box-current').classList.toggle('loaded', !!currentFile);
             btnProcess.disabled = !(beforeFile && currentFile);
+            if (beforeFile || currentFile) btnReset.style.display = 'block';
         });
         function setStatus(msg, type) {
             statusEl.className = 'status ' + type;
